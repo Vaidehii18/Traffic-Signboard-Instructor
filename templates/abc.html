@@ -1,0 +1,225 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Page</title>
+    <style>
+        /* Title Bar Styles */
+        .title-bar {
+            background-color: var(--title-bg-color, black);
+            color: var(--title-text-color, white);
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 20px;
+            font-weight: bold;
+        }
+        
+
+        /* Light Theme */
+        .light-theme {
+            --bg-color: white;
+            --text-color: black;
+            --title-bg-color: black;
+            --title-text-color: white;
+            .nav-btn {
+                background-color: Black;
+                color: white;
+                border: 1px solid white;
+                border-radius: 4px;
+                padding: 10px 20px;
+                cursor: pointer;
+            }
+            .nav-btn:hover {
+                background-color: blue;
+            }
+            
+            .chat-container {
+                max-width: 600px;
+                margin: 50px auto;
+                background-color: White;
+                border-radius: 10px;
+                box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+                padding: 20px;
+                text-align: center;
+                background-color: var(--bg-color, White);
+                color: var(--text-color, White);
+            }
+            .theme-toggle {
+                background-color: black;
+                color: white;
+                border: 1px solid white;
+                border-radius:4px;
+                padding: 10px;
+                cursor: pointer;
+            }
+        }
+
+        /* Dark Theme */
+        .dark-theme {
+            --bg-color: #3b3b3b;
+            --text-color: white;
+            --title-bg-color: white;
+            --title-text-color: black;
+            .nav-btn {
+                background-color: White;
+                color: Black;
+                border: 1px solid Black;
+                border-radius: 4px;
+                padding: 10px 20px;
+                cursor: pointer;
+            }
+            .nav-btn:hover {
+                background-color: blue;
+            }
+            .chat-container {
+                background-color: var(--bg-color, #333); /* Use a lighter black for readability */
+                color: var(--text-color, white); /* Ensure text is visible */
+                max-width: 600px;
+                margin: 50px auto;
+                border-radius: 10px;
+                box-shadow: 0 4px 8px rgba(255, 255, 255, 0.2); /* Softer shadow for dark mode */
+                padding: 20px;
+                text-align: center;
+            }
+            .theme-toggle {
+                background-color: White;
+                color: Black;
+                border: 1px solid Black;
+                border-radius:4px;
+                padding: 10px;
+                cursor: pointer;
+            }
+        }
+
+        /* Global styles using CSS variables */
+        body {
+            background-color: var(--bg-color, white);
+            color: var(--text-color, black);
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* Chat Styles */
+        
+
+        /* Image Preview Styles */
+        .img-preview {
+            width: 100%;
+            height: 400px;
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+            margin-bottom: 20px;
+        }
+
+        .image-section {
+            display: none;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <!-- Title Bar with Logout and Theme Toggle -->
+    <div class="title-bar">
+        <div>Traffic Signboard Instructor</div>
+        <button class="nav-btn" onclick="window.location.href='/index/'">Home</button>
+        <button class="nav-btn" onclick="window.location.href='/logout/'">Logout</button>
+        <select class="theme-toggle" id="theme-toggle" onchange="toggleTheme()">
+            <option value="light">Light</option>
+            <option value="dark">Dark</option>
+        </select>
+    </div>
+
+    <div class="chat-container">
+        <h2>Hi, {% if user.is_authenticated %}{{ user.username }}{% else %}Guest{% endif %}</h2>
+        <p>Please upload an image for assistance.</p>
+        <div>
+            <form id="upload-file" method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                <label for="imageUpload" class="upload-label">Choose...</label>
+                <input type="file" name="file" id="imageUpload" accept=".png, .jpg, .jpeg">
+            </form>
+
+            <div class="image-section" style="display:none;">
+                <div class="img-preview" id="imagePreview"></div>
+                <div>
+                    <button type="button" class="btn btn-primary btn-lg" id="btn-predict">Predict!</button>
+                </div>
+            </div>
+
+            <div class="loader" style="display:none;"></div>
+
+            <h3 id="result"><span> </span></h3>
+        </div>
+    </div>
+
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script>
+        // Theme toggle functionality
+        function toggleTheme() {
+            const theme = document.getElementById("theme-toggle").value;
+
+            // Apply the selected theme
+            if (theme === "light") {
+                document.body.classList.remove("dark-theme");
+                document.body.classList.add("light-theme");
+            } else {
+                document.body.classList.remove("light-theme");
+                document.body.classList.add("dark-theme");
+            }
+
+            // Save the theme preference in localStorage
+            localStorage.setItem("theme", theme);
+        }
+
+        // Load theme from localStorage on page load
+        document.addEventListener("DOMContentLoaded", function () {
+            const savedTheme = localStorage.getItem("theme") || "light"; // Default to light theme
+            document.getElementById("theme-toggle").value = savedTheme;
+            toggleTheme();
+        });
+
+        $(document).ready(function () {
+            // Show uploaded image preview
+            $("#imageUpload").change(function () {
+                const file = this.files[0];
+                if (file) {
+                    let reader = new FileReader();
+                    reader.onload = function (e) {
+                        $("#imagePreview").css("background-image", `url(${e.target.result})`);
+                        $(".image-section").show();
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+
+            // Predict button functionality
+            $("#btn-predict").click(function () {
+                const formData = new FormData($("#upload-file")[0]);
+                $(".loader").show();
+
+                $.ajax({
+                    type: 'POST',
+                    url: '{% url "predict" %}',
+                    data: formData,
+                    contentType: false,
+                    processData: false,
+                    success: function (data) {
+                        $(".loader").hide();
+                        $("#result").text(data.result);
+                    },
+                    error: function () {
+                        $(".loader").hide();
+                        alert("An error occurred. Please try again.");
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>
